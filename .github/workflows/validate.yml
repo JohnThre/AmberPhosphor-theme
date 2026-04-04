@@ -1,0 +1,24 @@
+name: Validate Theme
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate .terminal files
+        run: swift terminal/generate-terminal-themes.swift
+
+      - name: Validate plist XML
+        run: |
+          plutil -lint terminal/AmberPhosphor.terminal
+          plutil -lint terminal/AmberPhosphor-ANSI.terminal
+
+      - name: Check generated files
+        run: ls -la terminal/*.terminal

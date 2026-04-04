@@ -1,0 +1,12 @@
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Claude Code
+.claude/
+CLAUDE.md
+
+# Build artifacts
+*.o
+*.d
