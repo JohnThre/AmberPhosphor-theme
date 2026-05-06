@@ -7,6 +7,12 @@
 .claude/
 CLAUDE.md
 
+# Codex
+AGENTS.md
+.worktrees/
+.superpowers/
+docs/superpowers/
+
 # Build artifacts
 *.o
 *.d
