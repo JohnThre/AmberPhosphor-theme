@@ -103,6 +103,17 @@ func hexToNSColor(_ hex: String) -> NSColor {
     return NSColor(srgbRed: r, green: g, blue: b, alpha: 1.0)
 }
 
+func hexToComponents(_ hex: String) -> (red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat) {
+    let h = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
+    let scanner = Scanner(string: h)
+    var rgb: UInt64 = 0
+    scanner.scanHexInt64(&rgb)
+    let r = CGFloat((rgb >> 16) & 0xFF) / 255.0
+    let g = CGFloat((rgb >> 8) & 0xFF) / 255.0
+    let b = CGFloat(rgb & 0xFF) / 255.0
+    return (r, g, b, 1.0)
+}
+
 // MARK: - Archive NSColor to base64
 
 func archiveColor(_ color: NSColor) -> String {
@@ -221,28 +232,148 @@ func generateTerminalPlist(_ theme: ThemeColors) -> String {
     return xml
 }
 
+// MARK: - Generate iTerm2 .itermcolors plist XML
+
+func plistReal(_ value: CGFloat) -> String {
+    return String(format: "%.10g", Double(value))
+}
+
+func generateITerm2ColorDict(
+    red: CGFloat,
+    green: CGFloat,
+    blue: CGFloat,
+    alpha: CGFloat,
+    indent: String = "\t"
+) -> String {
+    return """
+\(indent)<dict>
+\(indent)\t<key>Red Component</key>
+\(indent)\t<real>\(plistReal(red))</real>
+\(indent)\t<key>Green Component</key>
+\(indent)\t<real>\(plistReal(green))</real>
+\(indent)\t<key>Blue Component</key>
+\(indent)\t<real>\(plistReal(blue))</real>
+\(indent)\t<key>Alpha Component</key>
+\(indent)\t<real>\(plistReal(alpha))</real>
+\(indent)\t<key>Color Space</key>
+\(indent)\t<string>sRGB</string>
+\(indent)</dict>
+"""
+}
+
+func generateITerm2ColorDict(hex: String, indent: String = "\t") -> String {
+    let color = hexToComponents(hex)
+    return generateITerm2ColorDict(
+        red: color.red,
+        green: color.green,
+        blue: color.blue,
+        alpha: color.alpha,
+        indent: indent
+    )
+}
+
+func generateITerm2Plist(_ theme: ThemeColors) -> String {
+    let colors: [(String, String)] = [
+        ("Ansi 0 Color", generateITerm2ColorDict(hex: theme.ansiBlack)),
+        ("Ansi 1 Color", generateITerm2ColorDict(hex: theme.ansiRed)),
+        ("Ansi 2 Color", generateITerm2ColorDict(hex: theme.ansiGreen)),
+        ("Ansi 3 Color", generateITerm2ColorDict(hex: theme.ansiYellow)),
+        ("Ansi 4 Color", generateITerm2ColorDict(hex: theme.ansiBlue)),
+        ("Ansi 5 Color", generateITerm2ColorDict(hex: theme.ansiMagenta)),
+        ("Ansi 6 Color", generateITerm2ColorDict(hex: theme.ansiCyan)),
+        ("Ansi 7 Color", generateITerm2ColorDict(hex: theme.ansiWhite)),
+        ("Ansi 8 Color", generateITerm2ColorDict(hex: theme.ansiBrightBlack)),
+        ("Ansi 9 Color", generateITerm2ColorDict(hex: theme.ansiBrightRed)),
+        ("Ansi 10 Color", generateITerm2ColorDict(hex: theme.ansiBrightGreen)),
+        ("Ansi 11 Color", generateITerm2ColorDict(hex: theme.ansiBrightYellow)),
+        ("Ansi 12 Color", generateITerm2ColorDict(hex: theme.ansiBrightBlue)),
+        ("Ansi 13 Color", generateITerm2ColorDict(hex: theme.ansiBrightMagenta)),
+        ("Ansi 14 Color", generateITerm2ColorDict(hex: theme.ansiBrightCyan)),
+        ("Ansi 15 Color", generateITerm2ColorDict(hex: theme.ansiBrightWhite)),
+        ("Background Color", generateITerm2ColorDict(hex: theme.background)),
+        ("Bold Color", generateITerm2ColorDict(hex: theme.boldText)),
+        ("Cursor Color", generateITerm2ColorDict(hex: theme.cursor)),
+        ("Cursor Text Color", generateITerm2ColorDict(hex: theme.background)),
+        ("Foreground Color", generateITerm2ColorDict(hex: theme.foreground)),
+        ("Selected Text Color", generateITerm2ColorDict(hex: theme.foreground)),
+        (
+            "Selection Color",
+            generateITerm2ColorDict(
+                red: theme.selectionR,
+                green: theme.selectionG,
+                blue: theme.selectionB,
+                alpha: theme.selectionA
+            )
+        ),
+    ]
+
+    var xml = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+
+    """
+
+    for (key, value) in colors {
+        xml += "\t<key>\(key)</key>\n"
+        xml += "\(value)\n"
+    }
+
+    xml += """
+    </dict>
+    </plist>
+    """
+
+    return xml
+}
+
 // MARK: - Main
 
 let scriptURL = URL(fileURLWithPath: CommandLine.arguments[0])
 let scriptDir = scriptURL.deletingLastPathComponent()
 
-let outputDir: URL
+let terminalOutputDir: URL
 if scriptDir.lastPathComponent == "terminal" {
-    outputDir = scriptDir
+    terminalOutputDir = scriptDir
 } else {
-    outputDir = scriptDir.appendingPathComponent("terminal")
+    terminalOutputDir = scriptDir.appendingPathComponent("terminal")
 }
+let iterm2OutputDir = terminalOutputDir
+    .deletingLastPathComponent()
+    .appendingPathComponent("iterm2")
 
-let themes: [(ThemeColors, String)] = [
+try! FileManager.default.createDirectory(
+    at: terminalOutputDir,
+    withIntermediateDirectories: true
+)
+try! FileManager.default.createDirectory(
+    at: iterm2OutputDir,
+    withIntermediateDirectories: true
+)
+
+let terminalThemes: [(ThemeColors, String)] = [
     (monochromeTheme, "AmberPhosphor.terminal"),
     (ansiTheme, "AmberPhosphor-ANSI.terminal"),
 ]
 
-for (theme, filename) in themes {
+for (theme, filename) in terminalThemes {
     let plist = generateTerminalPlist(theme)
-    let outputPath = outputDir.appendingPathComponent(filename)
+    let outputPath = terminalOutputDir.appendingPathComponent(filename)
     try! plist.write(to: outputPath, atomically: true, encoding: .utf8)
     print("Generated: \(outputPath.path)")
 }
 
-print("Done. Import into Terminal.app via Settings > Profiles > Import.")
+let iterm2Themes: [(ThemeColors, String)] = [
+    (monochromeTheme, "AmberPhosphor.itermcolors"),
+    (ansiTheme, "AmberPhosphor-ANSI.itermcolors"),
+]
+
+for (theme, filename) in iterm2Themes {
+    let plist = generateITerm2Plist(theme)
+    let outputPath = iterm2OutputDir.appendingPathComponent(filename)
+    try! plist.write(to: outputPath, atomically: true, encoding: .utf8)
+    print("Generated: \(outputPath.path)")
+}
+
+print("Done. Import Terminal.app profiles via Settings > Profiles > Import, and iTerm2 profiles via Settings > Profiles > Colors > Color Presets > Import.")
