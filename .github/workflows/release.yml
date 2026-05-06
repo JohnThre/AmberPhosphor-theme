@@ -1,0 +1,74 @@
+name: Release Theme
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  attestations: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify signed annotated tag
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          test "$(git cat-file -t "$tag")" = "tag"
+          git tag -v "$tag"
+
+      - name: Validate themes
+        run: scripts/validate-themes.sh
+
+      - name: Package release archive
+        id: package
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          archive="dist/AmberPhosphor-theme-${tag}.zip"
+          package_dir="$(mktemp -d)"
+          release_root="${package_dir}/AmberPhosphor-theme-${tag}"
+
+          mkdir -p "$release_root/terminal" "$release_root/iterm2" dist
+          cp README.md CHANGELOG.md LICENSE "$release_root/"
+          cp terminal/*.terminal terminal/install-terminal.sh "$release_root/terminal/"
+          cp iterm2/*.itermcolors iterm2/install-iterm2.sh "$release_root/iterm2/"
+
+          (cd "$package_dir" && zip -r "$GITHUB_WORKSPACE/$archive" "AmberPhosphor-theme-${tag}")
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release archive artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: amberphosphor-release-${{ github.ref_name }}
+          path: ${{ steps.package.outputs.archive }}
+          if-no-files-found: error
+
+      - name: Attest release archive
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ steps.package.outputs.archive }}
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          archive="dist/AmberPhosphor-theme-${tag}.zip"
+          notes="$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" -f tag_name="$tag" --jq .body)"
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$archive" --clobber
+            gh release edit "$tag" --title "$tag" --notes "$notes"
+          else
+            gh release create "$tag" "$archive" --title "$tag" --notes "$notes"
+          fi

@@ -6,19 +6,24 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out code
+        uses: actions/checkout@v4
 
-      - name: Generate .terminal files
-        run: swift terminal/generate-terminal-themes.swift
+      - name: Validate themes
+        run: scripts/validate-themes.sh
 
-      - name: Validate plist XML
-        run: |
-          plutil -lint terminal/AmberPhosphor.terminal
-          plutil -lint terminal/AmberPhosphor-ANSI.terminal
-
-      - name: Check generated files
-        run: ls -la terminal/*.terminal
+      - name: Upload generated themes
+        uses: actions/upload-artifact@v4
+        with:
+          name: amberphosphor-themes
+          path: |
+            terminal/*.terminal
+            iterm2/*.itermcolors
+          if-no-files-found: error
