@@ -13,6 +13,8 @@ permissions:
 jobs:
   release:
     runs-on: macos-latest
+    env:
+      EXPECTED_SIGNING_FINGERPRINT: 362767DE8B3309EBAA2331CDFEA322F2C85C0E17
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -22,14 +24,34 @@ jobs:
       - name: Validate release tag name
         shell: bash
         run: |
+          set -euo pipefail
           tag="${GITHUB_REF_NAME}"
           if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Release tag must match vX.Y.Z with numeric components: $tag" >&2
             exit 1
           fi
 
-      - name: Import release signing public key
+      - name: Verify tag commit matches origin/main
+        shell: bash
         run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+
+          git fetch origin main:refs/remotes/origin/main
+
+          tagged_commit="$(git rev-list -n 1 "$tag")"
+          origin_main_commit="$(git rev-parse origin/main)"
+          if [[ "$tagged_commit" != "$origin_main_commit" ]]; then
+            echo "Release tag must point at origin/main." >&2
+            echo "tagged commit: $tagged_commit" >&2
+            echo "origin/main:   $origin_main_commit" >&2
+            exit 1
+          fi
+
+      - name: Import release signing public key
+        shell: bash
+        run: |
+          set -euo pipefail
           gpg --import <<'EOF'
           -----BEGIN PGP PUBLIC KEY BLOCK-----
 
@@ -84,13 +106,28 @@ jobs:
           =fCc+
           -----END PGP PUBLIC KEY BLOCK-----
           EOF
+          imported_fingerprint="$(gpg --with-colons --fingerprint FEA322F2C85C0E17 | awk -F: '$1 == "fpr" { print $10; exit }')"
+          if [[ "$imported_fingerprint" != "$EXPECTED_SIGNING_FINGERPRINT" ]]; then
+            echo "Imported signing key fingerprint does not match expected release key." >&2
+            echo "expected: $EXPECTED_SIGNING_FINGERPRINT" >&2
+            echo "actual:   $imported_fingerprint" >&2
+            exit 1
+          fi
           gpg --fingerprint FEA322F2C85C0E17
 
       - name: Verify signed annotated tag
+        shell: bash
         run: |
+          set -euo pipefail
           tag="${GITHUB_REF_NAME}"
           test "$(git cat-file -t "$tag")" = "tag"
           git tag -v "$tag"
+          verify_output="$(git verify-tag --raw "$tag" 2>&1)"
+          if ! grep -Fq "[GNUPG:] VALIDSIG $EXPECTED_SIGNING_FINGERPRINT" <<<"$verify_output"; then
+            echo "Tag signature does not match expected release key fingerprint." >&2
+            echo "$verify_output" >&2
+            exit 1
+          fi
 
       - name: Validate themes
         run: scripts/validate-themes.sh

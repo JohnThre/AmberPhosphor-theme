@@ -107,6 +107,8 @@ scripts/release.sh vX.Y.Z
 
 The release helper validates the generated theme files, prompts for confirmation, then requires typing `yes` before it creates a local signed GPG tag, verifies it, and pushes the tag to `origin`. GitHub Actions publishes the GitHub release from that tag, uploads a release archive containing README/CHANGELOG/LICENSE plus the Terminal.app and iTerm2 theme files/install helpers, and attests that archive.
 
+Release tags must be signed by the expected GPG key fingerprint `362767DE8B3309EBAA2331CDFEA322F2C85C0E17`.
+
 ## Font
 
 Menlo Regular 14pt — a classic macOS monospace font at a size that evokes the larger character cells of vintage CRT terminals.

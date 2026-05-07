@@ -53,6 +53,11 @@ if [[ "$head_sha" != "$origin_main_sha" ]]; then
     exit 1
 fi
 
+if git ls-remote --exit-code --tags origin "refs/tags/$version" >/dev/null 2>&1; then
+    echo "Release tag $version already exists on origin." >&2
+    exit 1
+fi
+
 scripts/validate-themes.sh
 
 echo "About to create and push signed release tag $version at commit $head_sha."
