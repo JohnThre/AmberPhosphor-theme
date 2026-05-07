@@ -17,7 +17,7 @@ jobs:
       EXPECTED_SIGNING_FINGERPRINT: 362767DE8B3309EBAA2331CDFEA322F2C85C0E17
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
