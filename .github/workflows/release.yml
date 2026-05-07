@@ -1,0 +1,178 @@
+name: Release Theme
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  attestations: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    env:
+      EXPECTED_SIGNING_FINGERPRINT: 362767DE8B3309EBAA2331CDFEA322F2C85C0E17
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate release tag name
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tag must match vX.Y.Z with numeric components: $tag" >&2
+            exit 1
+          fi
+
+      - name: Verify tag commit matches origin/main
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+
+          git fetch origin main:refs/remotes/origin/main
+
+          tagged_commit="$(git rev-list -n 1 "$tag")"
+          origin_main_commit="$(git rev-parse origin/main)"
+          if [[ "$tagged_commit" != "$origin_main_commit" ]]; then
+            echo "Release tag must point at origin/main." >&2
+            echo "tagged commit: $tagged_commit" >&2
+            echo "origin/main:   $origin_main_commit" >&2
+            exit 1
+          fi
+
+      - name: Import release signing public key
+        shell: bash
+        run: |
+          set -euo pipefail
+          gpg --import <<'EOF'
+          -----BEGIN PGP PUBLIC KEY BLOCK-----
+
+          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
+          NI6ecF1Tulk=
+          =fCc+
+          -----END PGP PUBLIC KEY BLOCK-----
+          EOF
+          imported_fingerprint="$(gpg --with-colons --fingerprint FEA322F2C85C0E17 | awk -F: '$1 == "fpr" { print $10; exit }')"
+          if [[ "$imported_fingerprint" != "$EXPECTED_SIGNING_FINGERPRINT" ]]; then
+            echo "Imported signing key fingerprint does not match expected release key." >&2
+            echo "expected: $EXPECTED_SIGNING_FINGERPRINT" >&2
+            echo "actual:   $imported_fingerprint" >&2
+            exit 1
+          fi
+          gpg --fingerprint FEA322F2C85C0E17
+
+      - name: Verify signed annotated tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          test "$(git cat-file -t "$tag")" = "tag"
+          git tag -v "$tag"
+          verify_output="$(git verify-tag --raw "$tag" 2>&1)"
+          if ! grep -Fq "[GNUPG:] VALIDSIG $EXPECTED_SIGNING_FINGERPRINT" <<<"$verify_output"; then
+            echo "Tag signature does not match expected release key fingerprint." >&2
+            echo "$verify_output" >&2
+            exit 1
+          fi
+
+      - name: Validate themes
+        run: scripts/validate-themes.sh
+
+      - name: Package release archive
+        id: package
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          archive="dist/AmberPhosphor-theme-${tag}.zip"
+          package_dir="$(mktemp -d)"
+          release_root="${package_dir}/AmberPhosphor-theme-${tag}"
+
+          mkdir -p "$release_root/terminal" "$release_root/iterm2" dist
+          cp README.md CHANGELOG.md LICENSE "$release_root/"
+          cp terminal/*.terminal terminal/install-terminal.sh "$release_root/terminal/"
+          cp iterm2/*.itermcolors iterm2/install-iterm2.sh "$release_root/iterm2/"
+
+          (cd "$package_dir" && zip -r "$GITHUB_WORKSPACE/$archive" "AmberPhosphor-theme-${tag}")
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release archive artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: amberphosphor-release-${{ github.ref_name }}
+          path: ${{ steps.package.outputs.archive }}
+          if-no-files-found: error
+
+      - name: Attest release archive
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ steps.package.outputs.archive }}
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          archive="dist/AmberPhosphor-theme-${tag}.zip"
+          notes="$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" -f tag_name="$tag" --jq .body)"
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$archive" --clobber
+            gh release edit "$tag" --title "$tag" --notes "$notes"
+          else
+            gh release create "$tag" "$archive" --title "$tag" --notes "$notes"
+          fi
