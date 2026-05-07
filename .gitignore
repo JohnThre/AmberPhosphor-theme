@@ -3,12 +3,11 @@
 *.swp
 *~
 
-# Claude Code
+# Local workspace files
 .claude/
 CLAUDE.md
-
-# Codex
 AGENTS.md
+.codex/
 .worktrees/
 .superpowers/
 docs/superpowers/
