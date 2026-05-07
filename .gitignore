@@ -3,15 +3,6 @@
 *.swp
 *~
 
-# Local workspace files
-.claude/
-CLAUDE.md
-AGENTS.md
-.codex/
-.worktrees/
-.superpowers/
-docs/superpowers/
-
 # Build artifacts
 *.o
 *.d
