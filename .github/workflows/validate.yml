@@ -19,6 +19,9 @@ jobs:
       - name: Validate themes
         run: scripts/validate-themes.sh
 
+      - name: Test validation behavior
+        run: scripts/test-validate-themes.sh
+
       - name: Upload generated themes
         uses: actions/upload-artifact@v4
         with:
