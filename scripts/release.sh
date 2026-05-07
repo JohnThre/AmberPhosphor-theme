@@ -31,10 +31,36 @@ if [[ -n "$(git status --porcelain)" ]]; then
     exit 1
 fi
 
+branch="$(git branch --show-current)"
+if [[ "$branch" != "main" ]]; then
+    echo "Release must be run from main; current branch is '$branch'." >&2
+    exit 1
+fi
+
+if ! git rev-parse --verify --quiet origin/main >/dev/null; then
+    echo "origin/main does not exist; fetch origin before releasing." >&2
+    exit 1
+fi
+
+head_sha="$(git rev-parse HEAD)"
+origin_main_sha="$(git rev-parse origin/main)"
+if [[ "$head_sha" != "$origin_main_sha" ]]; then
+    echo "HEAD must match origin/main before releasing." >&2
+    echo "HEAD:        $head_sha" >&2
+    echo "origin/main: $origin_main_sha" >&2
+    exit 1
+fi
+
 scripts/validate-themes.sh
 
-git config user.signingkey "$SIGNING_KEY"
-git tag -s "$version" -m "AmberPhosphor $version"
+echo "About to create and push signed release tag $version at commit $head_sha."
+read -r -p "Type 'yes' to continue: " confirmation
+if [[ "$confirmation" != "yes" ]]; then
+    echo "Release cancelled." >&2
+    exit 1
+fi
+
+git -c user.signingkey="$SIGNING_KEY" tag -s "$version" -m "AmberPhosphor $version"
 git tag -v "$version"
 git push origin "$version"
 
