@@ -37,7 +37,7 @@ if [[ "$branch" != "main" ]]; then
     exit 1
 fi
 
-git fetch origin main
+git fetch origin main:refs/remotes/origin/main
 
 if ! git rev-parse --verify --quiet origin/main >/dev/null; then
     echo "origin/main does not exist; fetch origin before releasing." >&2
