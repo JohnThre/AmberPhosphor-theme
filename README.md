@@ -105,7 +105,7 @@ Create a release from a clean `main` branch that matches `origin/main`:
 scripts/release.sh vX.Y.Z
 ```
 
-The release helper validates the generated theme files, creates a local signed GPG tag, verifies it, and pushes the tag to `origin`. GitHub Actions publishes the GitHub release from that tag, uploads the generated Terminal.app and iTerm2 theme artifacts, and attaches provenance attestation.
+The release helper validates the generated theme files, prompts for confirmation, then requires typing `yes` before it creates a local signed GPG tag, verifies it, and pushes the tag to `origin`. GitHub Actions publishes the GitHub release from that tag, uploads a release archive containing README/CHANGELOG/LICENSE plus the Terminal.app and iTerm2 theme files/install helpers, and attests that archive.
 
 ## Font
 
